@@ -5,12 +5,14 @@
 #ifndef RANDOMWALKER_H
 #define RANDOMWALKER_H
 
-void determineNextLocations(World *world, Bee *bee);
+void determineNextLocations(World* world, Hive* hive, Bee *bee);
 
-Location *checkNearbyFlowers(World *world, Bee *bee);
+Flower *checkNearbyFlowers(List* flowers, Bee *bee);
 
-Location *getNearLocation(World *world, Bee *bee, int radius);
+Bee* checkNearbyBees(List* bees, Bee *bee, enum Role role);
 
-void randomPath(World *world,Bee *bee, Location *locationToGo);
+Location *getNearLocation(World* world,Hive* hive, Bee *bee, int radius, int attempts);
+
+void randomPath(Bee *bee, Location *locationToGo);
 
 #endif

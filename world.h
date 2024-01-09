@@ -12,34 +12,26 @@
 #define WORLD_H
 
 typedef struct World World;
-typedef struct Flower Flower;
 
 struct World {
     unsigned int id;
-    unsigned int size;
     long time;
     List *hives;
     List *flowers;
 };
 
-struct Flower {
-    unsigned int initialCapacity;
-    unsigned int capacity;
-    unsigned int honeyGiven;
-    Location *location;
-};
 
-World *createWorld(int id, int size);
+World *createWorld();
 
-Flower *createFlower(Location *location, unsigned int initialCapacity, unsigned int capacity, unsigned int honeyGiven);
+void createFlowers(World *world, int flowersCount);
 
-bool isOutOfWorld(Location *location, World *world);
+void tickHives(World *world, int frameRate);
 
-void tickHives(World *world, unsigned int frameRate);
+void tickBees(World *world, Hive *hive, int frameRate);
 
-void tickBees(World *world, Hive *hive, unsigned int frameRate);
+void tickFlowers(World *world, int frameRate);
 
-void moveBee(World *world, Hive *hive, Bee *bee, unsigned int frameRate);
+void moveBee(World *world, Hive *hive, Bee *bee, int frameRate);
 
 void showHives(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
 
@@ -54,5 +46,11 @@ void addHive(World *world, Hive *hive);
 void addFlower(World *world, Flower *flower);
 
 void tickWorld();
+
+bool isOutOfWorld(Location *location, World *world);
+
+bool isFlowerAround(World *world, Location *location, int radius);
+
+bool isHiveAround(World *world, Location *location, int radius);
 
 #endif

@@ -7,6 +7,7 @@ const unsigned int FRAME_RATE = 60;
 void tickWorld() {
     globalWorld->time++;
     tickHives(globalWorld, FRAME_RATE);
+    tickFlowers(globalWorld, FRAME_RATE);
 }
 
 void openGameWindow(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture **textures) {
@@ -34,7 +35,7 @@ void openGameWindow(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture **te
         SDL_RenderClear(renderer);
 
         SDL_RenderCopy(renderer, textures[0], NULL, &rect);
-        showHives(globalWorld, renderer, textures); // show hive (locations
+        showHives(globalWorld, renderer, textures); // show hive (locations)
         showFlowers(globalWorld, renderer, textures); // show flowers
 
         // triggers the double buffers
@@ -46,7 +47,7 @@ void openGameWindow(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture **te
     }
 
     // destroy texture
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 4; ++i) {
         SDL_DestroyTexture(textures[i]);
     }
 
@@ -81,14 +82,16 @@ void startSimulation(World *world) {
         printf("Error initializing SDL renderer: %s\n", SDL_GetError());
         goto Quit;
     }
-    SDL_Texture **textures = malloc(sizeof(SDL_Texture * ) * 3);
+    SDL_Texture **textures = malloc(sizeof(SDL_Texture *) * 4);
     SDL_Texture *backGroundTexture = loadImage(renderer, backGroundTexture, "assets/background.bmp");
     SDL_Texture *hiveTexture = loadImage(renderer, hiveTexture, "assets/hive.bmp");
     SDL_Texture *beeTexture = loadImage(renderer, beeTexture, "assets/mid-bee.bmp");
+    SDL_Texture *flowerTexture = loadImage(renderer, flowerTexture, "assets/flower.bmp");
 
     textures[0] = backGroundTexture;
     textures[1] = hiveTexture;
     textures[2] = beeTexture;
+    textures[3] = flowerTexture;
 
     openGameWindow(window, renderer, textures);
 
@@ -135,46 +138,37 @@ void freeFlowers() {
 }
 
 void createBees(Hive *hive) {
-    int beesCount = 25 + (rand() % 10);
+    int beesCount = INITIAL_BEES + (rand() % (INITIAL_BEES / 3));
     int randomQueenLifeTime = QUEEN_MAX_LIFE_TIME - (rand() % (QUEEN_MAX_LIFE_TIME / 4));
 
     List *hiveLocations = hive->locations;
-    Bee *queen = createBee(hive->beesCount++, getLocationFromList(hiveLocations, rand() % hiveLocations->size), QUEEN,
-                           randomQueenLifeTime, randomQueenLifeTime, 0, malloc(sizeof(int) * 2));
+    Bee *queen = createBee(++hive->beesCount, getLocationFromList(hiveLocations, rand() % hiveLocations->size), QUEEN, QUEEN_FOOD, randomQueenLifeTime, randomQueenLifeTime, 0, malloc(sizeof(int) * 2));
 
     for (int i = 0; i < beesCount; i++) {
         Location *location = getLocationFromList(hiveLocations, rand() % hiveLocations->size);
 
-        bool isDrone = rand() % 4 == 0;
+        bool isDrone = rand() % 2 == 0;
 
-        Bee *bee = createBee(hive->beesCount++, location, isDrone ? DRONE : WORKER, 99999, 99999, 0, malloc(sizeof(int) * 2));
+        int randomWorkerLifeTime = WORKER_MAX_LIFE_TIME - (rand() % (WORKER_MAX_LIFE_TIME / 4));
+        Bee *bee = createBee(++hive->beesCount, location, isDrone ? DRONE : WORKER, DEFAULT_FOOD, randomWorkerLifeTime, randomWorkerLifeTime, 0,malloc(sizeof(int) * 2));
         addBee(hive, bee);
     }
 
     addBee(hive, queen);
 }
 
-void createFlowers(World *world) {
-    int flowersCount = 10 + (rand() % 10);
-
-    for (int i = 0; i < flowersCount; i++) {
-        Location *location = createLocation(rand() % world->size, rand() % world->size);
-        addFlower(world, createFlower(location, 100, 100, 5));
-    }
-}
 
 
 int main() {
     srand(time(NULL));
 
-    World *world = createWorld(1, 800);
+    World *world = createWorld();
     Hive *hive = createHive(1, 368, 368, 32, 32);
 
-    Location *location = createLocation(0, 0);
+    addHive(world, hive);
 
     createBees(hive);
-    createFlowers(world);
-    addHive(world, hive);
+    createFlowers(world, INITIAL_FLOWERS + (rand() % (INITIAL_FLOWERS /4)));
 
     globalWorld = world;
     startSimulation(world);
@@ -186,7 +180,6 @@ int main() {
     freeList(hive->bees);
     freeList(hive->locations);
 
-    free(location);
     free(world);
     free(hive);
 
