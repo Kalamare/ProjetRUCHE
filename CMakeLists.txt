@@ -16,4 +16,6 @@ add_executable(Projet
         randomwalker.h
         randomwalker.c
         stack.h
-        stack.c)
+        stack.c
+        location.h
+        location.c)

@@ -2,14 +2,14 @@
 
 List *createList() {
     List *newList = malloc(sizeof(*newList));
-    newList->elementsCount = 0;
+    newList->size = 0;
     return newList;
 }
 
 void insertHead(List *list, ListElement *element) {
     element->nextElement = list->firstElement;
     list->firstElement = element;
-    list->elementsCount++;
+    list->size++;
 }
 
 void insertElement(List *list, ListElement *element) {
@@ -25,7 +25,7 @@ void insertElement(List *list, ListElement *element) {
     }
 
     actualElement->nextElement = element;
-    list->elementsCount++;
+    list->size++;
 }
 
 void removeElement(List *list, ListElement *element) {
@@ -36,14 +36,14 @@ void removeElement(List *list, ListElement *element) {
 
     if (actualElement == element) {
         list->firstElement = actualElement->nextElement;
-        list->elementsCount--;
+        list->size--;
         return;
     }
 
     while (actualElement->nextElement != NULL) {
         if (actualElement->nextElement == element) {
             actualElement->nextElement = actualElement->nextElement->nextElement;
-            list->elementsCount--;
+            list->size--;
             return;
         }
 

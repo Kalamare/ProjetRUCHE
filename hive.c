@@ -1,17 +1,25 @@
 #include "hive.h"
-#include "randomwalker.h"
 
 bool isIdling(Bee *bee) {
     return bee->idleTime > 0;
 }
 
+Location *getLocationFromList(List *locations, int position) {
+    if (locations == NULL) {
+        return NULL;
+    }
+    ListElement *actualElement = locations->firstElement;
 
-bool hasNextLocations(Bee *bee) {
-    int *nextLocations = bee->nextLocations;
-    return nextLocations != NULL && (nextLocations[0] != 0 || nextLocations[1] != 0);
+    for (int i = 0; i < position; i++) {
+        if (actualElement->nextElement == NULL) {
+            return NULL;
+        }
+        actualElement = actualElement->nextElement;
+    }
+    return actualElement->value;
 }
 
-Location *getNextLocation(Bee *bee, bool random) {
+Location *getNextLocation(Bee *bee) {
     int *nextLocations = bee->nextLocations;
     Location *nextLocation = createLocation(bee->location->x, bee->location->y);
     bool isX = rand() % 2 == 0;
@@ -41,77 +49,20 @@ Location *getNextLocation(Bee *bee, bool random) {
 }
 
 
-void moveBee(World *world, Bee *bee, unsigned int frameRate) {
-    if (isIdling(bee) && world->time % frameRate != 0) {
-        bee->idleTime--;
-        return;
-    }
-
-    if (hasNextLocations(bee)) {
-        Location *nextLocation = getNextLocation(bee, !bee->goingToFlower);
-        bee->location = nextLocation; // Set new location to bee
-        printf("Bee %d moved to %d, %d\n", bee->id, nextLocation->x, nextLocation->y);
-
-        if (!hasNextLocations(bee) && bee->goingToFlower) {
-            bee->goingToFlower = false;
-            bee->mustGoBack = true;
-        }
-        //  printf("Bee already has next locations, moving to %d, %d\n", bee->location->x, bee->location->y);
-        return;
-    }
-
-    Location *flowerLocation = checkNearbyFlowers(world, bee);
-
-    if (flowerLocation != NULL) {
-        printf("Bee %d found flower at %d, %d\n", bee->id, flowerLocation->x, flowerLocation->y);
-        printf("Bee %d honey: %d\n", bee->id, bee->honey);
-
-        randomPath(world, bee, flowerLocation);
-        printf("Bee %d path: %d, %d\n", bee->id, bee->nextLocations[0], bee->nextLocations[1]);
-        bee->goingToFlower = true;
-    } else {
-        determineNextLocations(world, bee);
-    }
-    // printf("Bee %d moved to %d, %d\n", bee->id, bee->location->x, bee->location->y);
-
-
-}
-
-void tickBees(World *world, Hive *hive, unsigned int frameRate) {
-    ListElement *actualElement = hive->bees->firstElement;
-    Bee *bee;
-
-    while (actualElement != NULL) {
-        bee = actualElement->value;
-
-        if (bee->dead) {
-            actualElement = actualElement->nextElement;
-            continue;
-        }
-
-        if (world->time % frameRate == 0) {
-            bee->lifeTime--;
-            // printf("Bee %d life time: %d\n", bee->id, bee->lifeTime);
-
-            if (bee->lifeTime <= 0) {
-                bee->dead = true;
-                printf("Bee %d died\n", bee->id);
-                actualElement = actualElement->nextElement;
-                continue;
-            }
-        }
-        moveBee(world, bee, frameRate);
-        actualElement = actualElement->nextElement;
-    }
-}
-
-Hive *createHive(int id, int height, int width) {
+Hive *createHive(int id, int x, int y, int height, int width) {
     Hive *hive = malloc(sizeof(Hive));
     hive->id = id;
     hive->height = height;
     hive->width = width;
     hive->time = 0;
     hive->beesCount = 0;
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            Location *location = createLocation(x + j, y + i);
+            addLocation(hive, location);
+        }
+    }
 
     printf("-- Hive created --\n");
     printf("> Id: %d\n", hive->id);
@@ -124,22 +75,15 @@ Hive *createHive(int id, int height, int width) {
     return hive;
 }
 
-Bee *
-createBee(int id, int health, unsigned honey, Location *location, enum Role role, bool disease, bool dead, int lifeTime,
-          long idleTime, int *nextLocations, bool mustGoBack, bool goingToFlower) {
+Bee *createBee(int id, Location *location, enum Role role, int health, int lifeTime, int idleTime, int *nextLocations) {
     Bee *bee = malloc(sizeof(Bee));
     bee->id = id;
-    bee->health = health;
-    bee->honey = honey;
     bee->location = location;
     bee->role = role;
-    bee->disease = disease;
-    bee->dead = dead;
+    bee->health = health;
     bee->lifeTime = lifeTime;
     bee->idleTime = idleTime;
     bee->nextLocations = nextLocations;
-    bee->mustGoBack = mustGoBack;
-    bee->goingToFlower = goingToFlower;
 
     printf("-- Bee created --\n");
     printf("> Id: %d\n", bee->id);
@@ -147,13 +91,9 @@ createBee(int id, int health, unsigned honey, Location *location, enum Role role
     printf("> Honey: %d\n", bee->honey);
     printf("> Location: %d, %d\n", bee->location->x, bee->location->y);
     printf("> Role: %d\n", bee->role);
-    printf("> Disease: %d\n", bee->disease);
-    printf("> Dead: %d\n", bee->dead);
     printf("> Life time: %d\n", bee->lifeTime);
-    printf("> Idle time: %ld\n", bee->idleTime);
+    printf("> Idle time: %d\n", bee->idleTime);
     printf("> Next locations: %p\n", bee->nextLocations);
-    printf("> Must go back: %d\n", bee->mustGoBack);
-    printf("> Going to flower: %d\n", bee->goingToFlower);
     printf("-------------------\n");
 
     return bee;
@@ -177,4 +117,53 @@ void addLocation(Hive *hive, Location *location) {
     listElement->value = location;
     listElement->nextElement = NULL;
     insertElement(hive->locations, listElement);
+}
+
+void triggerDisease(Bee *bee) {
+    if (bee->disease) {
+        return;
+    }
+    bool isDiseased = rand() % 400 == 0;
+
+    if (isDiseased) {
+        printf("Bee %d is diseased\n", bee->id);
+        bee->disease = true;
+    }
+}
+
+void tryEvolve(Bee *bee) {
+    bool canEvolve = rand() % 10 == 0;
+
+    if (!canEvolve) {
+        return;
+    }
+    bool evolved = false;
+
+    switch (bee->role) {
+        case EGG:
+            if (bee->lifeTime - bee->health >= EGG_LIFE_TIME) {
+                bee->role = LARVA;
+                evolved = true;
+            }
+            break;
+        case LARVA:
+            if (bee->lifeTime - bee->health >= LARVA_LIFE_TIME) {
+                bee->role = NYMPH;
+                evolved = true;
+            }
+            break;
+        case NYMPH:
+            if (bee->lifeTime - bee->health >= NYMPH_LIFE_TIME) {
+                bee->role = WORKER;
+                evolved = true;
+            }
+            break;
+        default:
+            break;
+    }
+
+    if (evolved) {
+        printf("Bee %d evolved to %d\n", bee->id, bee->role);
+        bee->health = bee->lifeTime;
+    }
 }

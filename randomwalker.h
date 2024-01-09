@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hive.h"
+#include "world.h"
 
 #ifndef RANDOMWALKER_H
 #define RANDOMWALKER_H
@@ -11,6 +11,6 @@ Location *checkNearbyFlowers(World *world, Bee *bee);
 
 Location *getNearLocation(World *world, Bee *bee, int radius);
 
-int *randomPath(World *world,Bee *bee, Location *locationToGo);
+void randomPath(World *world,Bee *bee, Location *locationToGo);
 
 #endif

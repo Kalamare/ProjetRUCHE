@@ -15,7 +15,7 @@ struct ListElement {
 
 struct List {
     ListElement *firstElement;
-    int elementsCount;
+    int size;
 };
 
 List *createList();

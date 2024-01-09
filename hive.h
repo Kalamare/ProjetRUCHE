@@ -1,30 +1,45 @@
-#include "world.h"
+#include <SDL2/SDL.h>
+#include <stdbool.h>
+#include "list.h"
+#include "location.h"
 
 #ifndef HIVE_H
 #define HIVE_H
 
+#define EGG_LIFE_TIME 3
+#define LARVA_LIFE_TIME 9
+#define NYMPH_LIFE_TIME 21
+#define QUEEN_MAX_LIFE_TIME 2190
+
+#define VIEW_DISTANCE 30
+
 typedef struct Hive Hive;
 typedef struct Bee Bee;
+
 
 enum Role {
     QUEEN,
     WORKER,
-    DRONE
+    DRONE,
+    EGG,
+    LARVA,
+    NYMPH
 };
 
 struct Bee {
     int id;
     int health;
-    unsigned int honey;
-    Location* location;
-    enum Role role;
+    int lifeTime;
+    int honey;
+    int *nextLocations;
+    int idleTime;
     bool disease;
     bool dead;
-    int lifeTime;
-    long idleTime;
-    int* nextLocations;
-    bool mustGoBack;
+    bool mustGoToHive;
     bool goingToFlower;
+    bool inHive;
+    Location *location;
+    enum Role role;
 };
 
 struct Hive {
@@ -33,20 +48,26 @@ struct Hive {
     int width;
     int beesCount;
     long time;
-    List* bees;
-    List* locations;
+    List *bees;
+    List *locations;
 };
 
-Hive* createHive(int id, int height, int width);
+Hive *createHive(int id, int x, int y, int height, int width);
 
-Bee* createBee(int id, int health, unsigned honey, Location* location, enum Role role, bool disease, bool dead, int lifeTime, long idleTime, int* nextLocations, bool mustGoBack, bool goingToFlower);
+Bee *createBee(int id, Location *location, enum Role role, int health, int lifeTime, int idleTime,int *nextLocations);
 
-void addBee(Hive* hive, Bee* bee);
+Location *getNextLocation(Bee *bee);
 
-void addLocation(Hive* hive, Location* location);
+Location *getLocationFromList(List *locations, int position);
 
-void tickBees(World* world, Hive* hive, unsigned int frameRate);
+void addBee(Hive *hive, Bee *bee);
 
-void moveBee(World* world, Bee* bee, unsigned int frameRate);
+void addLocation(Hive *hive, Location *location);
+
+void tryEvolve(Bee *bee);
+
+void triggerDisease(Bee *bee);
+
+bool isIdling(Bee *bee);
 
 #endif

@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include <time.h>
-#include<unistd.h>
+#include <unistd.h>
+#include "hive.h"
 #include "list.h"
 #include "stack.h"
 
@@ -13,18 +13,13 @@
 
 typedef struct World World;
 typedef struct Flower Flower;
-typedef struct Location Location;
 
 struct World {
     unsigned int id;
     unsigned int size;
     long time;
+    List *hives;
     List *flowers;
-};
-
-struct Location {
-    int x;
-    int y;
 };
 
 struct Flower {
@@ -36,18 +31,28 @@ struct Flower {
 
 World *createWorld(int id, int size);
 
-Location *createLocation(int x, int y);
-
 Flower *createFlower(Location *location, unsigned int initialCapacity, unsigned int capacity, unsigned int honeyGiven);
+
+bool isOutOfWorld(Location *location, World *world);
+
+void tickHives(World *world, unsigned int frameRate);
+
+void tickBees(World *world, Hive *hive, unsigned int frameRate);
+
+void moveBee(World *world, Hive *hive, Bee *bee, unsigned int frameRate);
+
+void showHives(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
+
+void showBees(Hive *hive, SDL_Renderer *renderer, SDL_Texture **textures);
+
+void showFlowers(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
+
+SDL_Texture *loadImage(SDL_Renderer *renderer, SDL_Texture *texture, char *path);
+
+void addHive(World *world, Hive *hive);
 
 void addFlower(World *world, Flower *flower);
 
 void tickWorld();
-
-bool isOutOfWorld(Location *location, World *world);
-
-double distanceSquared(Location *location1, Location *location2);
-
-double distance(Location *location1, Location *location2);
 
 #endif
