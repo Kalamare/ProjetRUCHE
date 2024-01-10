@@ -1,6 +1,9 @@
 #include "hive.h"
 #include "randomwalker.h"
 
+int WORLD_SIZE_X = 0;
+int WORLD_SIZE_Y = 0;
+
 bool isIdling(Bee *bee) {
     return bee->idleTime > 0;
 }
@@ -88,8 +91,22 @@ Hive *createHive(int id, int x, int y, int height, int width) {
     return hive;
 }
 
-Bee *createBee(int id, Location *location, enum Role role, int food, int health, int lifeTime, int idleTime,
-               int *nextLocations) {
+Lake *createLake(int id, int x, int y, int height, int width) {
+    Lake *lake = malloc(sizeof(Lake));
+    lake->id = id;
+    lake->height = height;
+    lake->width = width;
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            Location *location = createLocation(x + j, y + i);
+            addLakeLocation(lake, location);
+        }
+    }
+    return lake;
+}
+
+Bee *createBee(int id, Location *location, enum Role role, int food, int health, int lifeTime, int idleTime, int *nextLocations) {
     Bee *bee = malloc(sizeof(Bee));
     bee->id = id;
     bee->location = location;
@@ -152,6 +169,16 @@ void addLocation(Hive *hive, Location *location) {
     insertElement(hive->locations, listElement);
 }
 
+void addLakeLocation(Lake *lake, Location *location) {
+    if (lake->locations == NULL) {
+        lake->locations = createList();
+    }
+    ListElement *listElement = malloc(sizeof(ListElement));
+    listElement->value = location;
+    listElement->nextElement = NULL;
+    insertElement(lake->locations, listElement);
+}
+
 void triggerFoodLoss(Hive *hive, Bee *bee) {
     if (bee->food == 0) {
         bee->health -= 3;
@@ -166,7 +193,7 @@ void triggerFoodLoss(Hive *hive, Bee *bee) {
     //printf("Bee %d lost 1 food\n", bee->id);
 
     if (!bee->mustGoToHive && bee->food <= (DEFAULT_FOOD * FEED_TRESHOLD)) {
-       // printf("Bee %d is hungry\n", bee->id);
+       printf("Bee %d is hungry\n", bee->id);
         List *hiveLocations = hive->locations;
         Location *randomHiveLocation = getLocationFromList(hiveLocations, rand() % hiveLocations->size);
         bee->mustGoToHive = true;
@@ -202,6 +229,9 @@ void removeFlowerById(List *flowers, int id) {
 }
 
 void handleEggsLaying(Bee *queen, Hive* hive) {
+    if (queen->mustGoToHive){
+        return;
+    }
     bool canLayEggs = rand() % 3 == 0;
 
     if (!canLayEggs) {
@@ -220,6 +250,7 @@ void handleEggsLaying(Bee *queen, Hive* hive) {
 
 void handleBeeFeeding(Bee *bee, Hive *hive) {
     if (bee->food > (DEFAULT_FOOD * FEED_TRESHOLD) || hive->nectar == 0) {
+        //printf("Bee is not hungry or hive has no nectar\n");
         return;
     }
     int toFeed = (int) (DEFAULT_FOOD * FEED_AMOUNT_RATIO);
@@ -229,11 +260,12 @@ void handleBeeFeeding(Bee *bee, Hive *hive) {
     }
     bee->food += toFeed;
     hive->nectar -= toFeed;
-    //printf("Bee %d fed %d\n", bee->id, toFeed);
+   printf("Bee %d fed %d\n", bee->id, toFeed);
 }
 
 void handleNectarTransfer(Bee *bee, Hive *hive) {
     if (bee->nectar == 0 || hive->nectar >= MAX_NECTAR_CAPACITY) {
+        //printf("Bee has no nectar or hive has max nectar capacity\n");
         return;
     }
 
@@ -249,11 +281,12 @@ void handleNectarTransfer(Bee *bee, Hive *hive) {
     bee->nectar = 0;
 }
 
-void triggerHarvest(List *flowers, Bee *bee) {
+int triggerHarvest(List *flowers, Bee *bee) {
     Flower *flower = bee->flowerToGo;
 
-    if (flower == NULL) {
-        return;
+    if (flower == NULL || flower->capacity <= 0) {
+        bee->flowerToGo = NULL;
+        return 0;
     }
     bool killFlower = false;
     int honeyGiven = flower->nectarGiven - (rand() % (flower->nectarGiven - 2));
@@ -264,13 +297,13 @@ void triggerHarvest(List *flowers, Bee *bee) {
     }
 
     flower->capacity -= honeyGiven;
-    bee->nectar += honeyGiven;
+    //bee->nectar += honeyGiven;
 
     if (killFlower) {
-        printf("Bee %d killed flower %d\n", bee->id, flower->id);
+        //printf("Bee %d killed flower %d\n", bee->id, flower->id);
         removeFlowerById(flowers, flower->id);
     }
-    bee->flowerToGo = NULL;
+    return honeyGiven;
 }
 
 void tryEvolve(Bee *bee) {

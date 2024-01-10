@@ -6,14 +6,12 @@
 #ifndef HIVE_H
 #define HIVE_H
 
-#define WORLD_SIZE 800
-
 #define EGG_LIFE_TIME 30
 #define LARVA_LIFE_TIME 60
 #define NYMPH_LIFE_TIME 100
 
 #define QUEEN_MAX_LIFE_TIME 12300
-#define WORKER_MAX_LIFE_TIME 432
+#define WORKER_MAX_LIFE_TIME 332
 
 #define DAYS_BEFORE_GO_COUPLING 10
 #define COUPLING_TIMES_BEFORE_LAY_EGGS 4
@@ -24,12 +22,13 @@
 #define DEFAULT_FOOD 5
 #define QUEEN_FOOD 200
 
-#define INITIAL_BEES 35
+#define INITIAL_BEES 60
 #define INITIAL_FLOWERS 30
 #define DISTANCE_BETWEEN_FLOWERS 45
 #define DISTANCE_FLOWER_HIVE 150
+#define DISTANCE_FLOWER_LAKE 50
 
-#define FLOWERS_VIEW_DISTANCE 30
+#define FLOWERS_VIEW_DISTANCE 40
 #define MIN_FLOWER_CAPACITY 30
 #define MIN_FLOWER_NECTAR_GIVEN 5
 
@@ -41,14 +40,18 @@
 typedef struct Flower Flower;
 typedef struct Hive Hive;
 typedef struct Bee Bee;
+typedef struct Lake Lake;
 
 enum Role {
     QUEEN,
     WORKER,
+    FORAGER,
     DRONE,
     EGG,
     LARVA,
-    NYMPH
+    NYMPH,
+    HORNET,
+    PRAYING_MANTIS
 };
 
 struct Bee {
@@ -56,6 +59,7 @@ struct Bee {
     int health;
     int lifeTime;
     int nectar;
+    int harvestNectar;
     int water;
     int *nextLocations;
     int idleTime;
@@ -90,11 +94,21 @@ struct Flower {
     Location *location;
 };
 
+struct Lake {
+    int id;
+    int height;
+    int width;
+    List *locations;
+};
+
 Hive *createHive(int id, int x, int y, int height, int width);
 
-Bee *createBee(int id, Location *location, enum Role role, int food, int health, int lifeTime, int idleTime, int *nextLocations);
+Bee *createBee(int id, Location *location, enum Role role, int food, int health, int lifeTime, int idleTime,
+               int *nextLocations);
 
-Flower *createFlower(int id, Location *location,  int initialCapacity,  int capacity,  int honeyGiven);
+Lake *createLake(int id, int x, int y, int height, int width);
+
+Flower *createFlower(int id, Location *location, int initialCapacity, int capacity, int honeyGiven);
 
 Location *getNextLocation(Bee *bee);
 
@@ -104,13 +118,15 @@ void addBee(Hive *hive, Bee *bee);
 
 void addLocation(Hive *hive, Location *location);
 
+void addLakeLocation(Lake *lake, Location *location);
+
 void tryEvolve(Bee *bee);
 
 void triggerDisease(Bee *bee);
 
-void triggerHarvest(List *flowers, Bee *bee);
+int triggerHarvest(List *flowers, Bee *bee);
 
-void triggerFoodLoss(Hive* hive, Bee *bee);
+void triggerFoodLoss(Hive *hive, Bee *bee);
 
 void handleNectarTransfer(Bee *bee, Hive *hive);
 
@@ -122,8 +138,8 @@ bool isIdling(Bee *bee);
 
 bool isGoingToFlower(Bee *bee);
 
-bool canQueenGoCoupling(Bee* queen);
+bool canQueenGoCoupling(Bee *queen);
 
-bool canQueenStartLayingEggs(Bee* queen);
+bool canQueenStartLayingEggs(Bee *queen);
 
 #endif

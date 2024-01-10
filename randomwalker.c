@@ -58,7 +58,7 @@ Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int at
         return getNearLocation(world, hive, bee, radius, attempts + 1);
     }
 
-    if (nearLocation->x < 0 || nearLocation->x >= WORLD_SIZE || nearLocation->y < 0 ||nearLocation->y >= WORLD_SIZE || distanceSquared(beeLocation, nearLocation) <= pow(10, 2) || isHiveAround(world, nearLocation, 30)) {
+    if (nearLocation->x < 0 || nearLocation->x >= world->width || nearLocation->y < 0 || nearLocation->y >= world->height || distanceSquared(beeLocation, nearLocation) <= pow(10, 2) || isHiveAround(world, nearLocation, 30)) {
         free(nearLocation);
         return getNearLocation(world, hive, bee, radius, attempts + 1);
     }

@@ -15,9 +15,12 @@ typedef struct World World;
 
 struct World {
     unsigned int id;
+    int height;
+    int width;
     long time;
     List *hives;
     List *flowers;
+    List* lakes;
 };
 
 
@@ -39,17 +42,23 @@ void showBees(Hive *hive, SDL_Renderer *renderer, SDL_Texture **textures);
 
 void showFlowers(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
 
+void showLakes(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
+
 SDL_Texture *loadImage(SDL_Renderer *renderer, SDL_Texture *texture, char *path);
 
 void addHive(World *world, Hive *hive);
 
 void addFlower(World *world, Flower *flower);
 
+void addLake(World *world, Lake *lake);
+
 void tickWorld();
 
 bool isOutOfWorld(Location *location, World *world);
 
 bool isFlowerAround(World *world, Location *location, int radius);
+
+bool isLakeAround(World *world, Location *location, int radius);
 
 bool isHiveAround(World *world, Location *location, int radius);
 

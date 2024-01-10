@@ -2,8 +2,7 @@
 #include "randomwalker.h"
 
 bool isOutOfWorld(Location *location, World *world) {
-    return location == NULL ||
-           (location->x < 0 || location->x >= WORLD_SIZE || location->y < 0 || location->y >= WORLD_SIZE);
+    return location == NULL || (location->x < 0 || location->x >= world->width || location->y < 0 || location->y >= world->height);
 }
 
 bool hasNextLocations(Bee *bee) {
@@ -13,6 +12,30 @@ bool hasNextLocations(Bee *bee) {
 
 bool isSecondTick(World *world, int frameRate) {
     return world->time % frameRate == 0;
+}
+
+bool isLakeAround(World *world, Location *location, int radius) {
+    if (world->lakes == NULL) {
+        return false;
+    }
+    ListElement *actualElement = world->lakes->firstElement;
+    Lake *lake;
+
+    while (actualElement != NULL) {
+        lake = actualElement->value;
+        ListElement *actualLocationElement = lake->locations->firstElement;
+
+        while (actualLocationElement != NULL) {
+            Location *lakeLocation = actualLocationElement->value;
+
+            if (distanceSquared(location, lakeLocation) <= pow(radius, 2)) {
+                return true;
+            }
+            actualLocationElement = actualLocationElement->nextElement;
+        }
+        actualElement = actualElement->nextElement;
+    }
+    return false;
 }
 
 bool isFlowerAround(World *world, Location *location, int radius) {
@@ -102,9 +125,13 @@ void moveBee(World *world, Hive *hive, Bee *bee, int frameRate) {
             bee->inHive = false;
             bee->mustGoToHive = false;
         } else if (isGoingToFlower(bee)) {
-            triggerHarvest(world->flowers, bee);
             //printf("Bee %d nectar: %d\n", bee->id, bee->nectar);
-            bee->mustGoToHive = true;
+            if (bee->harvestNectar > 0) {
+                bee->nectar += bee->harvestNectar;
+                bee->harvestNectar = 0;
+                bee->mustGoToHive = true;
+                bee->flowerToGo = NULL;
+            }
         }
         return;
     }
@@ -120,8 +147,12 @@ void moveBee(World *world, Hive *hive, Bee *bee, int frameRate) {
         }
 
         if (isGoingToFlower(bee)) {
-            bee->idleTime = 3; // Idling for 3 seconds
-            goToHive(hive, bee, false);
+            int harvestNectar = triggerHarvest(world->flowers, bee);
+            if (harvestNectar > 0) {
+                bee->harvestNectar += harvestNectar;
+                bee->idleTime = 3; // Idling for 3 seconds
+                goToHive(hive, bee, false);
+            }
             return;
         }
         if (bee->mustGoToHive) {
@@ -138,6 +169,9 @@ void moveBee(World *world, Hive *hive, Bee *bee, int frameRate) {
     }
 
     if (bee->mustGoToHive || isGoingToFlower(bee)) {
+        if (bee->role == QUEEN){
+            bee->mustGoToHive = false;
+        }
         return;
     }
     if (bee->role == QUEEN) {
@@ -163,14 +197,15 @@ void createFlowers(World *world, int flowersCount) {
     int actualFlowersCount = world->flowers == NULL ? 0 : world->flowers->size;
 
     for (int i = 0; i < flowersCount; i++) {
-        Location *location = createLocation(rand() % WORLD_SIZE, rand() % WORLD_SIZE);
+
+        Location *location = createLocation(rand() % world->width, rand() % world->height);
 
         if (attempts > 1000) {
             //printf("Too many attempts, breaking\n");
             break;
         }
 
-        if (isFlowerAround(world, location, DISTANCE_BETWEEN_FLOWERS) || isHiveAround(world, location, DISTANCE_FLOWER_HIVE)) {
+        if (isFlowerAround(world, location, DISTANCE_BETWEEN_FLOWERS) || isHiveAround(world, location, DISTANCE_FLOWER_HIVE) || isLakeAround(world, location, DISTANCE_FLOWER_LAKE)) {
             //printf("Flower around with location %d, %d\n", location->x, location->y);
             free(location);
             i--;
@@ -180,7 +215,7 @@ void createFlowers(World *world, int flowersCount) {
         int randomCapacity = MIN_FLOWER_CAPACITY + (rand() % MIN_FLOWER_CAPACITY);
         int randomHoneyGiven = MIN_FLOWER_NECTAR_GIVEN + (rand() % MIN_FLOWER_NECTAR_GIVEN);
 
-        addFlower(world, createFlower(actualFlowersCount + i + 1 , location, randomCapacity, randomCapacity, randomHoneyGiven));
+        addFlower(world,createFlower(actualFlowersCount + i + 1, location, randomCapacity, randomCapacity, randomHoneyGiven));
         //printf("Flower created with location %d, %d\n", location->x, location->y);
     }
 }
@@ -229,11 +264,14 @@ void tickBees(World *world, Hive *hive, int frameRate) {
                 bee->dead = true;
                 //printf("Bee %d died\n", bee->id);
 
-                if (bee->role == QUEEN){
+                if (bee->role == QUEEN) {
                     printf("Queen died, creating new queen\n");
                     int randomQueenLifeTime = QUEEN_MAX_LIFE_TIME - (rand() % (QUEEN_MAX_LIFE_TIME / 4));
 
-                    Bee *queen = createBee(++hive->beesCount, getLocationFromList(hive->locations, rand() % hive->locations->size), QUEEN, QUEEN_FOOD, randomQueenLifeTime, randomQueenLifeTime, 0, malloc(sizeof(int) * 2));
+                    Bee *queen = createBee(++hive->beesCount,
+                                           getLocationFromList(hive->locations, rand() % hive->locations->size), QUEEN,
+                                           QUEEN_FOOD, randomQueenLifeTime, randomQueenLifeTime, 0,
+                                           malloc(sizeof(int) * 2));
                     addBee(hive, queen);
                 }
                 actualBeeElement = actualBeeElement->nextElement;
@@ -247,7 +285,7 @@ void tickBees(World *world, Hive *hive, int frameRate) {
                 handleEggsLaying(bee, hive);
             }
         }
-        if (bee->role != EGG && bee->role != LARVA && bee->role != NYMPH) {
+        if (bee->role != EGG && bee->role != LARVA && bee->role != NYMPH && bee->role != WORKER) {
             moveBee(world, hive, bee, frameRate);
         }
         actualBeeElement = actualBeeElement->nextElement;
@@ -262,18 +300,10 @@ void showHives(World *world, SDL_Renderer *renderer, SDL_Texture **textures) {
     while (actualHiveElement != NULL) {
         Hive *hive = actualHiveElement->value;
         ListElement *actualLocationElement = hive->locations->firstElement;
-        Location *location;
+        Location *location = hive->locations->firstElement->value;
 
-        while (actualLocationElement != NULL) {
-            location = actualLocationElement->value;
-            SDL_Rect rect = {location->x, location->y, hive->height, hive->width};
-            SDL_RenderCopy(renderer, textures[1], NULL, &rect);
-
-            /* SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-             SDL_RenderFillRect(renderer, &rect);*/
-
-            actualLocationElement = actualLocationElement->nextElement;
-        }
+        SDL_Rect rect = {location->x, location->y, hive->height, hive->width};
+        SDL_RenderCopy(renderer, textures[1], NULL, &rect);
 
         showBees(hive, renderer, textures); // show bees
         actualHiveElement = actualHiveElement->nextElement;
@@ -296,7 +326,7 @@ void showBees(Hive *hive, SDL_Renderer *renderer, SDL_Texture **textures) {
         if (bee->role == QUEEN) {
             SDL_Rect rect = {bee->location->x, bee->location->y, 30, 27};
             SDL_RenderCopy(renderer, textures[2], NULL, &rect);
-        } else if (bee->role == WORKER) {
+        } else if (bee->role == FORAGER) {
             SDL_Rect rect = {bee->location->x, bee->location->y, 10, 9};
             SDL_RenderCopy(renderer, textures[2], NULL, &rect);
         } else if (bee->role == DRONE) {
@@ -319,8 +349,23 @@ void showFlowers(World *world, SDL_Renderer *renderer, SDL_Texture **textures) {
     while (actualElement != NULL) {
         flower = actualElement->value;
         // create a rect for each flower with red color
-        SDL_Rect rect = {flower->location->x - 30, flower->location->y , 60, 38};
+        SDL_Rect rect = {flower->location->x - 30, flower->location->y, 60, 38};
         SDL_RenderCopy(renderer, textures[3], NULL, &rect);
+
+        actualElement = actualElement->nextElement;
+    }
+}
+
+void showLakes(World *world, SDL_Renderer *renderer, SDL_Texture **textures) {
+    ListElement *actualElement = world->lakes->firstElement;
+    Lake *lake;
+
+    while (actualElement != NULL) {
+        lake = actualElement->value;
+        Location *location = lake->locations->firstElement->value;
+        // create a rect for each lake with red color
+        SDL_Rect rect = {location->x, location->y, lake->height, lake->width};
+        SDL_RenderCopy(renderer, textures[4], NULL, &rect);
 
         actualElement = actualElement->nextElement;
     }
@@ -375,4 +420,14 @@ void addFlower(World *world, Flower *flower) {
     listElement->value = flower;
     listElement->nextElement = NULL;
     insertElement(world->flowers, listElement);
+}
+
+void addLake(World *world, Lake *lake) {
+    if (world->lakes == NULL) {
+        world->lakes = createList();
+    }
+    ListElement *listElement = malloc(sizeof(ListElement));
+    listElement->value = lake;
+    listElement->nextElement = NULL;
+    insertElement(world->lakes, listElement);
 }
