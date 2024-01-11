@@ -1,19 +1,17 @@
 #include "hive.h"
 #include "randomwalker.h"
 
-int WORLD_SIZE_X = 0;
-int WORLD_SIZE_Y = 0;
-
 bool isIdling(Bee *bee) {
     return bee->idleTime > 0;
 }
 
 bool isGoingToFlower(Bee *bee) {
-    return bee->flowerToGo != NULL;
+    bool isGoingToFlower = bee->flowerToGo != -1;
+    return isGoingToFlower;
 }
 
 bool canQueenGoCoupling(Bee* queen){
-    return queen->lifeTime - queen->health >= DAYS_BEFORE_GO_COUPLING;
+    return queen != NULL && queen->lifeTime - queen->health >= DAYS_BEFORE_GO_COUPLING;
 }
 
 bool canQueenStartLayingEggs(Bee* queen){
@@ -116,6 +114,7 @@ Bee *createBee(int id, Location *location, enum Role role, int food, int health,
     bee->lifeTime = lifeTime;
     bee->idleTime = idleTime;
     bee->nextLocations = nextLocations;
+    bee->flowerToGo = -1;
 
     /*  printf("-- Bee created --\n");
       printf("> Id: %d\n", bee->id);
@@ -143,6 +142,7 @@ void addBee(Hive *hive, Bee *bee) {
 
 Flower *createFlower(int id, Location *location, int initialCapacity, int capacity, int honeyGiven) {
     Flower *flower = malloc(sizeof(Flower));
+
     flower->id = id;
     flower->location = location;
     flower->initialCapacity = initialCapacity;
@@ -179,12 +179,12 @@ void addLakeLocation(Lake *lake, Location *location) {
     insertElement(lake->locations, listElement);
 }
 
-void triggerFoodLoss(Hive *hive, Bee *bee) {
-    if (bee->food == 0) {
+void triggerFoodLoss(Hive *hive, Bee *bee, int frameRate) {
+    if (bee->food == 0 && rand() % 50 == 0) {
         bee->health -= 3;
         return;
     }
-    bool lostFood = rand() % 3000 == 0;
+    bool lostFood = rand() % 3000 * (frameRate / 60) == 0;
 
     if (!lostFood) {
         return;
@@ -193,7 +193,7 @@ void triggerFoodLoss(Hive *hive, Bee *bee) {
     //printf("Bee %d lost 1 food\n", bee->id);
 
     if (!bee->mustGoToHive && bee->food <= (DEFAULT_FOOD * FEED_TRESHOLD)) {
-       printf("Bee %d is hungry\n", bee->id);
+        printf("Bee %d is hungry\n", bee->id);
         List *hiveLocations = hive->locations;
         Location *randomHiveLocation = getLocationFromList(hiveLocations, rand() % hiveLocations->size);
         bee->mustGoToHive = true;
@@ -201,11 +201,11 @@ void triggerFoodLoss(Hive *hive, Bee *bee) {
     }
 }
 
-void triggerDisease(Bee *bee) {
+void triggerDisease(Bee *bee, int frameRate) {
     if (bee->disease) {
         return;
     }
-    bool isDiseased = rand() % 400 == 0;
+    bool isDiseased = rand() % 800 == 0;
 
     if (isDiseased) {
         //printf("Bee %d is diseased\n", bee->id);
@@ -232,7 +232,7 @@ void handleEggsLaying(Bee *queen, Hive* hive) {
     if (queen->mustGoToHive){
         return;
     }
-    bool canLayEggs = rand() % 3 == 0;
+    bool canLayEggs = rand() % 4 == 0;
 
     if (!canLayEggs) {
         return;
@@ -253,14 +253,14 @@ void handleBeeFeeding(Bee *bee, Hive *hive) {
         //printf("Bee is not hungry or hive has no nectar\n");
         return;
     }
-    int toFeed = (int) (DEFAULT_FOOD * FEED_AMOUNT_RATIO);
+    int toFeed = (int) (DEFAULT_FOOD * FEED_AMOUNT_RATIO) * 2;
 
     if (toFeed > hive->nectar) {
         toFeed = hive->nectar;
     }
     bee->food += toFeed;
     hive->nectar -= toFeed;
-   printf("Bee %d fed %d\n", bee->id, toFeed);
+    printf("Bee %d fed %d\n", bee->id, toFeed);
 }
 
 void handleNectarTransfer(Bee *bee, Hive *hive) {
@@ -272,7 +272,7 @@ void handleNectarTransfer(Bee *bee, Hive *hive) {
     if (hive->nectar + bee->nectar > MAX_NECTAR_CAPACITY) {
         bee->nectar = MAX_NECTAR_CAPACITY - hive->nectar;
         hive->nectar = MAX_NECTAR_CAPACITY;
-        printf("Max nectar capacity reached\n");
+        //printf("Max nectar capacity reached\n");
         return;
     }
     hive->nectar += bee->nectar;
@@ -281,14 +281,29 @@ void handleNectarTransfer(Bee *bee, Hive *hive) {
     bee->nectar = 0;
 }
 
+Flower* getFlowerById(List *flowers, int id) {
+    ListElement *actualElement = flowers->firstElement;
+    Flower *flower;
+
+    while (actualElement != NULL) {
+        flower = actualElement->value;
+
+        if (flower->id == id) {
+            return flower;
+        }
+        actualElement = actualElement->nextElement;
+    }
+    return NULL;
+}
+
 int triggerHarvest(List *flowers, Bee *bee) {
-    Flower *flower = bee->flowerToGo;
+    Flower *flower = getFlowerById(flowers, bee->flowerToGo);
 
     if (flower == NULL || flower->capacity <= 0) {
-        bee->flowerToGo = NULL;
         return 0;
     }
     bool killFlower = false;
+
     int honeyGiven = flower->nectarGiven - (rand() % (flower->nectarGiven - 2));
 
     if (honeyGiven <= 0 || flower->capacity < honeyGiven) {
@@ -297,6 +312,7 @@ int triggerHarvest(List *flowers, Bee *bee) {
     }
 
     flower->capacity -= honeyGiven;
+
     //bee->nectar += honeyGiven;
 
     if (killFlower) {
@@ -306,8 +322,27 @@ int triggerHarvest(List *flowers, Bee *bee) {
     return honeyGiven;
 }
 
+/**
+ * @return a random role for the bee
+ */
+enum Role chooseRole() {
+    int random = rand() % 100;
+
+    if (random <= 15){
+        return WORKER;
+    }
+    if (random <= 35){
+        return DRONE;
+    }
+    return FORAGER;
+}
+
+/**
+ * Evolve the bee if it can
+ * @param bee
+ */
 void tryEvolve(Bee *bee) {
-    bool canEvolve = rand() % 10 == 0;
+    bool canEvolve = rand() % 2 == 0;
 
     if (!canEvolve) {
         return;
@@ -329,7 +364,14 @@ void tryEvolve(Bee *bee) {
             break;
         case NYMPH:
             if (bee->lifeTime - bee->health >= NYMPH_LIFE_TIME - (rand() %  NYMPH_LIFE_TIME / 3)) {
-                bee->role = rand() % 2 == 0 ? DRONE : WORKER;
+                bee->role = chooseRole();
+
+                if (bee->role == FORAGER){
+                    printf("Bee %d evolved to forager\n", bee->id);
+                }
+                if(bee-> role == DRONE){
+                    bee->inHive = true;
+                }
                 evolved = true;
             }
             break;
@@ -338,7 +380,6 @@ void tryEvolve(Bee *bee) {
     }
 
     if (evolved) {
-        //printf("Bee %d evolved to %d\n", bee->id, bee->role);
         bee->health = bee->lifeTime;
     }
 }

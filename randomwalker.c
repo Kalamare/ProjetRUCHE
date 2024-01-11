@@ -53,12 +53,17 @@ Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int at
 
     Location *nearLocation = createLocation(newX, newY);
 
-    if(bee->role == QUEEN && distanceSquared(hive->locations->firstElement->value, nearLocation) > pow(QUEEN_MAX_RANDOM_WALK_RANGE, 2)){
-        free(nearLocation);
-        return getNearLocation(world, hive, bee, radius, attempts + 1);
+    bool finded = true;
+
+    if (bee->role == QUEEN && distanceSquared(hive->locations->firstElement->value, nearLocation) > pow(QUEEN_MAX_RANDOM_WALK_RANGE, 2)){
+        finded = false;
+    } else if(bee->role == DRONE && distanceSquared(hive->locations->firstElement->value, nearLocation) > pow(DRONE_MAX_RANDOM_WALK_RANGE, 2)){
+        finded = false;
+    } else if (nearLocation->x < 0 || nearLocation->x >= world->width || nearLocation->y < 0 || nearLocation->y >= world->height || distanceSquared(beeLocation, nearLocation) <= pow(10, 2) || isHiveAround(world, nearLocation, 30)) {
+        finded = false;
     }
 
-    if (nearLocation->x < 0 || nearLocation->x >= world->width || nearLocation->y < 0 || nearLocation->y >= world->height || distanceSquared(beeLocation, nearLocation) <= pow(10, 2) || isHiveAround(world, nearLocation, 30)) {
+    if (!finded){
         free(nearLocation);
         return getNearLocation(world, hive, bee, radius, attempts + 1);
     }
@@ -67,7 +72,7 @@ Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int at
 
 void determineNextLocations(World* world, Hive* hive, Bee *bee) {
     //printf("Determining next locations for bee %d\n", bee->id);
-    Location *nearLocation = getNearLocation(world, hive, bee, 50, 0);
+    Location *nearLocation = getNearLocation(world, hive, bee, SEARCH_LOCATION_RADIUS, 0);
 
     if (nearLocation != NULL) {
         randomPath(bee, nearLocation);

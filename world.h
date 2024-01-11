@@ -28,6 +28,10 @@ World *createWorld();
 
 void createFlowers(World *world, int flowersCount);
 
+void createLakes(World *world, int lakesCount);
+
+void createBees(Hive *hive, int beesCount);
+
 void tickHives(World *world, int frameRate);
 
 void tickBees(World *world, Hive *hive, int frameRate);
@@ -43,6 +47,8 @@ void showBees(Hive *hive, SDL_Renderer *renderer, SDL_Texture **textures);
 void showFlowers(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
 
 void showLakes(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
+
+void showMetrics(World *world, SDL_Renderer *renderer, SDL_Texture **textures);
 
 SDL_Texture *loadImage(SDL_Renderer *renderer, SDL_Texture *texture, char *path);
 
@@ -60,6 +66,10 @@ bool isFlowerAround(World *world, Location *location, int radius);
 
 bool isLakeAround(World *world, Location *location, int radius);
 
+bool isLakeAround(World *world, Location *location, int radius);
+
 bool isHiveAround(World *world, Location *location, int radius);
+
+bool isBorderAround(World *world, Location *location, int radius);
 
 #endif
