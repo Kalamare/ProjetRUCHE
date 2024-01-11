@@ -1,11 +1,21 @@
 #include "world.h"
 #include "randomwalker.h"
 
+/**
+ * Returns if the location is out of the world
+ * @param location
+ * @param world
+ * @return
+ */
 bool isOutOfWorld(Location *location, World *world) {
-    return location == NULL ||
-           (location->x < 0 || location->x >= world->width || location->y < 0 || location->y >= world->height);
+    return location == NULL || (location->x < 0 || location->x >= world->width || location->y < 0 || location->y >= world->height);
 }
 
+/**
+ * Return if the bee has a path to go
+ * @param bee
+ * @return
+ */
 bool hasNextLocations(Bee *bee) {
     if (bee == NULL) {
         return false;
@@ -16,10 +26,23 @@ bool hasNextLocations(Bee *bee) {
     return hasNextLocations;
 }
 
+/**
+ * Return if the world as passed 1 second (1 second = 1 day)
+ * @param world
+ * @param frameRate
+ * @return
+ */
 bool isSecondTick(World *world, int frameRate) {
     return world->time % frameRate == 0;
 }
 
+/**
+ * Return if there is a lake around the location with the radius
+ * @param world
+ * @param location
+ * @param radius
+ * @return
+ */
 bool isLakeAround(World *world, Location *location, int radius) {
     if (world->lakes == NULL) {
         return false;
@@ -44,6 +67,13 @@ bool isLakeAround(World *world, Location *location, int radius) {
     return false;
 }
 
+/**
+ * Return if there is a flower around the location with the radius
+ * @param world
+ * @param location
+ * @param radius
+ * @return
+ */
 bool isFlowerAround(World *world, Location *location, int radius) {
     if (world->flowers == NULL) {
         return false;
@@ -63,6 +93,13 @@ bool isFlowerAround(World *world, Location *location, int radius) {
     return false;
 }
 
+/**
+ * Return if there is a hive around the location with the radius
+ * @param world
+ * @param location
+ * @param radius
+ * @return
+ */
 bool isHiveAround(World *world, Location *location, int radius) {
     if (world->hives == NULL) {
         return false;
@@ -88,6 +125,13 @@ bool isHiveAround(World *world, Location *location, int radius) {
     return false;
 }
 
+/**
+ * Return there is the world border around the location with the radius
+ * @param world
+ * @param location
+ * @param radius
+ * @return
+ */
 bool isBorderAround(World *world, Location *location, int radius) {
     return location->x <= radius || location->x >= world->width - radius || location->y <= radius ||location->y >= world->height - radius;
 }
@@ -142,101 +186,101 @@ void goRoleToHive(Hive *hive, enum Role role) {
  */
 
 void moveBee(World *world, Hive *hive, Bee *bee, int frameRate) {
-    if ((bee->role == QUEEN || bee->role == DRONE) && !canQueenGoCoupling(bee)) {
+    if ((bee->role == QUEEN || bee->role == DRONE) && !canQueenGoCoupling(bee)) { // Don't move at start before queen can start coupling
         return;
     }
     if (bee->role == QUEEN && isSecondTick(world, frameRate) && !canQueenStartLayingEggs(bee)) {
-        Bee *nearBee = checkNearbyBees(hive->bees, bee, DRONE);
+        Bee *nearBee = checkNearbyBees(hive->bees, bee, DRONE); // Check if there is a drone near the queen
 
         if (nearBee != NULL && !nearBee->dead && !isGoingToFlower(nearBee)) { // When queen is near another bee and the other bee is not going to flower
-            nearBee->dead = true;
+            nearBee->dead = true; // Kill the drone
             printf("Drone %d died by coupling with queen\n", nearBee->id);
 
             if (++bee->couplingTimes >= COUPLING_TIMES_BEFORE_LAY_EGGS) {
-                goToHive(hive, bee, true);
-                goRoleToHive(hive, DRONE);
+                goToHive(hive, bee, true); // Return to hive
+                goRoleToHive(hive, DRONE); // Return all drones to hive
             }
         }
     }
 
-    if (isIdling(bee)) {
+    if (isIdling(bee)) { // If bee is idling
         if (!isSecondTick(world, frameRate) || --bee->idleTime > 0) {
             return;
         }
-        if (bee->mustGoToHive) {
+        if (bee->mustGoToHive) { // if bee was in hive
             bee->inHive = false;
             bee->mustGoToHive = false;
-        } else if (isGoingToFlower(bee)) {
+        } else if (isGoingToFlower(bee)) { // if bee was going to flower
             //printf("Bee %d nectar: %d\n", bee->id, bee->nectar);
             if (bee->harvestNectar > 0) {
-                bee->nectar += bee->harvestNectar;
+                bee->nectar += bee->harvestNectar; // Add nectar to bee
                 bee->harvestNectar = 0;
-                bee->mustGoToHive = true;
+                bee->mustGoToHive = true; // return to hive
                 bee->flowerToGo = -1;
             }
         }
         return;
     }
 
-    if (hasNextLocations(bee)) {
+    if (hasNextLocations(bee)) { // if there is a path cached
         Location *nextLocation = getNextLocation(bee);
         bee->location = nextLocation; // Set new location to bee
         //printf("Bee %d moved to %d, %d\n", bee->id, nextLocation->x, nextLocation->y);
         triggerFoodLoss(hive, bee, frameRate);
 
-        if (hasNextLocations(bee)) {
+        if (hasNextLocations(bee)) { // if the bee has finished the path
             return;
         }
 
-        if (isGoingToFlower(bee)) {
-            int harvestNectar = triggerHarvest(world->flowers, bee);
+        if (isGoingToFlower(bee)) { // if the destination was a flower
+            int harvestNectar = triggerHarvest(world->flowers, bee); // Trigger the harvest
             if (harvestNectar > 0) {
                 bee->harvestNectar += harvestNectar;
                 bee->idleTime = 3; // Idling for 3 seconds
-                goToHive(hive, bee, false);
+                goToHive(hive, bee, false); // Set destination to hive
             }
             return;
         }
-        if (bee->mustGoToHive) {
+        if (bee->mustGoToHive) { // if the destination was the hive
             if (bee->role != QUEEN) {
                 if (bee->role != DRONE) {
-                    bee->idleTime = 5; // Idling for 5 seconds
+                    bee->idleTime = 5; // Idling for 5 seconds if the bee wasnt queen and drone
                 }
                 bee->inHive = true;
             }
 
-            handleNectarTransfer(bee, hive);
-            handleBeeFeeding(bee, hive);
+            handleNectarTransfer(bee, hive); // Handle nectar transfer
+            handleBeeFeeding(bee, hive); // Handle bee feeding
         }
         //  printf("Bee already has next locations, moving to %d, %d\n", bee->location->x, bee->location->y);
         return;
     }
 
-    if (bee->mustGoToHive || isGoingToFlower(bee)) {
+    if (bee->mustGoToHive || isGoingToFlower(bee)) { // Don't search new destination if there is one already set
         if (bee->role == QUEEN) {
             bee->mustGoToHive = false;
         }
         return;
     }
-    if (bee->role == DRONE && canQueenStartLayingEggs(hive->queen)) {
+    if (bee->role == DRONE && canQueenStartLayingEggs(hive->queen)) { // Don't move the drone from hive anymore
         return;
     }
 
     if (bee->role == QUEEN) {
-        if (canQueenStartLayingEggs(bee)) {
+        if (canQueenStartLayingEggs(bee)) { // If the queen is in hive
             return;
         }
-        determineNextLocations(world, hive, bee);
+        determineNextLocations(world, hive, bee); // Else find new destination
         return;
     }
-    Flower *flower = checkNearbyFlowers(world->flowers, bee);
+    Flower *flower = checkNearbyFlowers(world->flowers, bee); // Check if there is flowers around the bee
 
     if (flower != NULL) {
         Location *flowerLocation = flower->location;
-        randomPath(bee, flowerLocation);
+        randomPath(bee, flowerLocation); // Set the destination to the flower
         bee->flowerToGo = flower->id;
     } else {
-        determineNextLocations(world, hive, bee);
+        determineNextLocations(world, hive, bee); // Else find new random destination
     }
 }
 
@@ -459,16 +503,16 @@ void showMetrics(World *world, SDL_Renderer *renderer, SDL_Texture **textures) {
     Hive *hive1 = actualHiveElement->value;
 
 
-    SDL_Rect rect = {world->width - 180, 40, 150, 22};
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_Rect rect = {world->width - 180, 40, 150, 22}; // Progress bar rect
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White color
 
-    SDL_RenderCopy(renderer, textures[5], NULL, &rect);
+    SDL_RenderCopy(renderer, textures[5], NULL, &rect);  // Copy on actual render
 
-    int value = (hive1->nectar * 147) / MAX_NECTAR_CAPACITY;
+    int value = (hive1->nectar * 147) / MAX_NECTAR_CAPACITY; // Calculate the value of the progress bar
 
-    SDL_Rect rect2 = {world->width - 177, 42, value, 18};
-    SDL_SetRenderDrawColor(renderer, 223, 117, 5, 255);
-    SDL_RenderFillRect(renderer, &rect2);
+    SDL_Rect rect2 = {world->width - 177, 42, value, 18}; // Progress bar value rect
+    SDL_SetRenderDrawColor(renderer, 223, 117, 5, 255); // Orange color
+    SDL_RenderFillRect(renderer, &rect2);  // Fill the progress bar value rect
 }
 
 /**
@@ -615,6 +659,10 @@ SDL_Texture *loadImage(SDL_Renderer *renderer, SDL_Texture *texture, char *path)
     return texture;
 }
 
+/**
+ * Method to create the world
+ * @return
+ */
 World *createWorld() {
     World *world = malloc(sizeof(World));
     world->time = 0;
@@ -628,6 +676,11 @@ World *createWorld() {
     return world;
 }
 
+/**
+ * Method to add a hive to the world
+ * @param world
+ * @param hive
+ */
 void addHive(World *world, Hive *hive) {
     if (world->hives == NULL) {
         world->hives = createList();
@@ -638,6 +691,11 @@ void addHive(World *world, Hive *hive) {
     insertElement(world->hives, listElement);
 }
 
+/**
+ * Method to add a flower to the world
+ * @param world
+ * @param flower
+ */
 void addFlower(World *world, Flower *flower) {
     if (world->flowers == NULL) {
         world->flowers = createList();
@@ -648,6 +706,11 @@ void addFlower(World *world, Flower *flower) {
     insertElement(world->flowers, listElement);
 }
 
+/**
+ * Method to add a lake to the world
+ * @param world
+ * @param lake
+ */
 void addLake(World *world, Lake *lake) {
     if (world->lakes == NULL) {
         world->lakes = createList();

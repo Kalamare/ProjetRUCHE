@@ -1,5 +1,11 @@
 #include "randomwalker.h"
 
+/**
+ * Check if there is a flower nearby the bee
+ * @param flowers
+ * @param bee
+ * @return
+ */
 Flower *checkNearbyFlowers(List* flowers, Bee *bee) {
     ListElement *actualElement = flowers->firstElement;
     Flower *flower;
@@ -17,6 +23,13 @@ Flower *checkNearbyFlowers(List* flowers, Bee *bee) {
     return NULL;
 }
 
+/**
+ * Check if there is a bee with specified role nearby the bee
+ * @param bees
+ * @param bee
+ * @param role
+ * @return
+ */
 Bee *checkNearbyBees(List* bees, Bee *bee, enum Role role) {
     ListElement *actualElement = bees->firstElement;
     Bee *nearBee;
@@ -35,6 +48,15 @@ Bee *checkNearbyBees(List* bees, Bee *bee, enum Role role) {
     return NULL;
 }
 
+/**
+ * Get random location near the bee
+ * @param world
+ * @param hive
+ * @param bee
+ * @param radius
+ * @param attempts
+ * @return
+ */
 Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int attempts) {
 
     if (attempts >= 1000) {
@@ -42,14 +64,14 @@ Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int at
     }
 
     Location *beeLocation = bee->location;
-    bool xPositive = rand() % 2 == 0;
-    bool yPositive = rand() % 2 == 0;
+    bool xPositive = rand() % 2 == 0; // x positive or negative
+    bool yPositive = rand() % 2 == 0; // y positive or negative
 
-    int newRandomXRadius = rand() % radius;
-    int newRandomYRadius = rand() % radius;
+    int newRandomXRadius =  rand() % radius; // random number between 0 and radius
+    int newRandomYRadius = rand() % radius; // random number between 0 and radius
 
-    int newX = (xPositive ? beeLocation->x + newRandomXRadius : beeLocation->x - newRandomXRadius);
-    int newY = (yPositive ? beeLocation->y + newRandomYRadius : beeLocation->y - newRandomYRadius);
+    int newX = (xPositive ? beeLocation->x + newRandomXRadius : beeLocation->x - newRandomXRadius); // new x location
+    int newY = (yPositive ? beeLocation->y + newRandomYRadius : beeLocation->y - newRandomYRadius); // new y location
 
     Location *nearLocation = createLocation(newX, newY);
 
@@ -63,23 +85,34 @@ Location *getNearLocation(World* world, Hive* hive, Bee *bee, int radius, int at
         finded = false;
     }
 
-    if (!finded){
-        free(nearLocation);
-        return getNearLocation(world, hive, bee, radius, attempts + 1);
+    if (!finded){ // if the location is not valid
+        free(nearLocation); // free memory
+        return getNearLocation(world, hive, bee, radius, attempts + 1); // try again
     }
     return nearLocation;
 }
 
+/**
+ * Determine next locations for the bee
+ * @param world
+ * @param hive
+ * @param bee
+ */
 void determineNextLocations(World* world, Hive* hive, Bee *bee) {
     //printf("Determining next locations for bee %d\n", bee->id);
-    Location *nearLocation = getNearLocation(world, hive, bee, SEARCH_LOCATION_RADIUS, 0);
+    Location *nearLocation = getNearLocation(world, hive, bee, SEARCH_LOCATION_RADIUS, 0); // get random location near the bee
 
     if (nearLocation != NULL) {
-        randomPath(bee, nearLocation);
+        randomPath(bee, nearLocation); // random path to the location
     }
     //  printf("Added %d next locations to bee %d\n", newPath[0] + newPath[1], bee->id);
 }
 
+/**
+ * Random path to the location
+ * @param bee
+ * @param locationToGo
+ */
 void randomPath(Bee *bee, Location *locationToGo) {
     int differenceX = locationToGo->x - bee->location->x;
     int differenceY = locationToGo->y - bee->location->y;
@@ -87,6 +120,6 @@ void randomPath(Bee *bee, Location *locationToGo) {
      printf("Bee location: %d, %d\n", bee->location->x, bee->location->y);
      printf("Difference: %d, %d\n", differenceX, differenceY);*/
 
-    bee->nextLocations[0] = differenceX;
-    bee->nextLocations[1] = differenceY;
+    bee->nextLocations[0] = differenceX; // set next x location changes in the array
+    bee->nextLocations[1] = differenceY; // set next y location changes in the array
 }

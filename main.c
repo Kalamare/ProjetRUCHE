@@ -55,7 +55,7 @@ void openGameWindow(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture **te
         SDL_Delay(1000 / FRAME_RATE);
     }
 
-    // destroy texture
+    // destroy all texture
     for (int i = 0; i < 5; ++i) {
         SDL_DestroyTexture(textures[i]);
     }
@@ -107,10 +107,10 @@ void startSimulation(World *world) {
     SDL_Texture **textures = malloc(sizeof(SDL_Texture *) * 6);
 
     for (int i = 0; i < 6; i++) {
-        textures[i] = loadImage(renderer, textures[i], paths[i]);
+        textures[i] = loadImage(renderer, textures[i], paths[i]); // Load all images
     }
 
-    openGameWindow(window, renderer, textures);
+    openGameWindow(window, renderer, textures); // Open the game window
 
     Quit:
     if (renderer != NULL) {
@@ -203,7 +203,7 @@ int main() {
     printf("Enter the World size (Ex: 1920 1080): ");
     scanf("%d %d", &world->width, &world->height);*/
 
-    world->width = 1280; //TODO REMOVE
+    world->width = 1280;
     world->height = 720;
 
     Hive *hive = createHive(1, world->width / 2 , world->height / 2, 32, 32);
